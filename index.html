@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Simulador de hilos · Práctica 1</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f3f6fb;--card:#fff;--ink:#16243b;--mut:#5b6b85;--line:#d6deeb;--code:#1b1d29;--codeink:#f2f2f2;--ok:#16a34a;--warn:#f59e0b}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1522;--card:#17202f;--ink:#e8eefb;--mut:#9fb0cc;--line:#2a374d;--code:#0b0d15}}
+:root[data-theme="dark"]{--bg:#0e1522;--card:#17202f;--ink:#e8eefb;--mut:#9fb0cc;--line:#2a374d;--code:#0b0d15}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+*,*:before,*:after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:980px;margin:0 auto;padding:18px 16px 40px}
+h1{font-size:1.5rem;margin:.2rem 0 .2rem;line-height:1.2}
+.sub{color:var(--mut);margin:0 0 14px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+.ctrl{display:flex;flex-wrap:wrap;gap:14px 22px;align-items:center}
+.ctrl label{display:flex;gap:8px;align-items:center;font-weight:600}
+.ctrl input[type=range]{width:150px}
+select,button{font:inherit;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:7px 12px;cursor:pointer}
+button.main{background:#2563eb;border-color:#2563eb;color:#fff;font-weight:700}
+button:disabled{opacity:.4;cursor:default}
+button:focus-visible,select:focus-visible,input:focus-visible,.pill:focus-visible{outline:3px solid #f59e0b;outline-offset:2px}
+.steps{display:flex;gap:6px;flex-wrap:wrap}
+.pill{flex:1 1 130px;border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-size:.85rem;text-align:left;background:var(--card);color:var(--mut)}
+.pill b{display:inline-block;width:20px;height:20px;line-height:20px;text-align:center;border-radius:50%;background:var(--line);color:var(--ink);margin-right:6px;font-size:.75rem}
+.pill.on{border-color:#2563eb;color:var(--ink);font-weight:700}.pill.on b{background:#2563eb;color:#fff}
+.pill.done b{background:var(--ok);color:#fff}
+.lane{display:grid;grid-template-columns:96px 1fr 120px;gap:10px;align-items:center;padding:8px 0;border-top:1px dashed var(--line)}
+.lane:first-child{border-top:0}
+.who{font-weight:700}.who small{display:block;font-weight:400;color:var(--mut);font-size:.75rem}
+.tiles{display:flex;flex-wrap:wrap;gap:3px;min-height:28px}
+.t{min-width:26px;height:26px;padding:0 4px;border-radius:6px;display:grid;place-items:center;font-size:.72rem;font-weight:700;background:var(--line);color:var(--mut);transition:background .2s,color .2s}
+.t.asg{color:#fff}.t.dim{opacity:.55}
+.bar{height:22px;border-radius:6px;background:var(--line);overflow:hidden}.bar i{display:block;height:100%;transition:width .2s}
+.val{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+.val small{display:block;font-weight:400;color:var(--mut);font-size:.75rem}
+.main-lane .chip{display:inline-block;padding:4px 10px;border-radius:999px;background:var(--line);font-weight:600;font-size:.85rem}
+.chip.run{background:#fde68a;color:#5a4300}.chip.go{background:#bbf7d0;color:#064e1f}
+.two{display:grid;grid-template-columns:1.05fr 1fr;gap:12px}
+@media (max-width:760px){.two{grid-template-columns:1fr}.lane{grid-template-columns:70px 1fr 90px;gap:6px}}
+.explain h2{font-size:1.05rem;margin:0 0 4px}.explain p{margin:0;color:var(--mut)}
+pre{margin:0;background:var(--code);color:var(--codeink);border-radius:10px;padding:12px;overflow-x:auto;font:12.5px/1.55 ui-monospace,Menlo,Consolas,monospace;min-height:150px}
+.k{color:#ff79c6}.f{color:#50fa7b}.s{color:#f1fa8c}.c{color:#8a96bd;font-style:italic}.n{color:#bd93f9}
+.res{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-top:6px}
+.res div{border:1px solid var(--line);border-radius:10px;padding:8px 10px}.res span{display:block;color:var(--mut);font-size:.78rem}
+.res b{font-size:1.05rem;font-variant-numeric:tabular-nums}
+.verdict{margin-top:8px;padding:9px 12px;border-radius:10px;font-weight:700;background:#bbf7d0;color:#064e1f}
+footer{color:var(--mut);font-size:.82rem;margin-top:14px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+<h1>¿Cómo suman N hilos un rango de números?</h1>
+<p class="sub">Elige cuántos hilos y qué rango, y avanza paso a paso para ver cómo se reparte, se calcula y se acumula el trabajo.</p>
+
+<div class="panel ctrl">
+  <label>Hilos (N): <input id="n" type="range" min="1" max="8" value="4"><output id="nv">4</output></label>
+  <label>Rango: 1 a
+    <select id="end"><option value="12">12</option><option value="24">24</option><option value="30">30</option><option value="1000000">1,000,000</option></select>
+  </label>
+  <span style="flex:1"></span>
+  <button id="prev">Anterior</button>
+  <button id="next" class="main">Siguiente paso</button>
+  <button id="play">Reproducir</button>
+  <button id="reset">Reiniciar</button>
+</div>
+
+<div class="panel"><div class="steps" id="steps"></div></div>
+
+<div class="two">
+  <div class="panel">
+    <div class="lane main-lane"><div class="who">Hilo principal<small>main</small></div><div><span class="chip" id="mchip"></span></div><div class="val" id="mval"></div></div>
+    <div id="lanes"></div>
+  </div>
+  <div>
+    <div class="panel explain"><h2 id="et"></h2><p id="ed"></p></div>
+    <pre id="code" aria-label="Fragmento de código del paso"></pre>
+  </div>
+</div>
+
+<div class="panel" id="resp" hidden>
+  <b>Comparación final</b>
+  <div class="res" id="resg"></div>
+  <div class="verdict" id="verd"></div>
+</div>
+
+<footer>Práctica 1 · Programación paralela y recurrente · Alondra Goretti González Martínez (218534681). Este simulador es una animación didáctica: los tiempos no son mediciones reales.</footer>
+</main>
+
+<script>
+const COL=['#2563eb','#14b8a6','#f59e0b','#a855f7','#ef4444','#22c55e','#ec4899','#0ea5e9'];
+const fmt=x=>x.toLocaleString('en-US');
+const sumR=(a,b)=>b<a?0:(a+b)*(b-a+1)/2;
+function split(a,b,n){const tot=b-a+1,base=Math.floor(tot/n),res=tot%n,r=[];let cur=a;
+  for(let i=0;i<n;i++){const sz=base+(i<res?1:0);r.push([cur,cur+sz-1]);cur+=sz}return r}
+const STEPS=[
+ ['Configurar N','Se define cuántos hilos habrá (N) y el rango a sumar. El programa valida que N sea al menos 1 y no mayor que la cantidad de números.',
+  '<span class="k">parser</span>.add_argument(<span class="s">"-n"</span>, <span class="s">"--hilos"</span>, type=int)\nargs = <span class="f">leer_argumentos</span>()\n<span class="c"># N y el rango (1 a 1,000,000 por defecto)</span>'],
+ ['Dividir el rango','Con divmod se calcula el tamaño base y el residuo; los primeros hilos reciben un número extra, así no se pierde ni se repite ningún valor.',
+  'base, residuo = <span class="f">divmod</span>(total, n_hilos)\n<span class="k">for</span> i <span class="k">in</span> <span class="f">range</span>(n_hilos):\n    tamano = base + (<span class="n">1</span> <span class="k">if</span> i &lt; residuo <span class="k">else</span> <span class="n">0</span>)\n    rangos.append((actual, actual + tamano - <span class="n">1</span>))'],
+ ['Crear e iniciar los hilos','Se crea un Thread por subrango y se inicia con start(). Desde aquí los hilos están en ejecución.',
+  '<span class="k">for</span> i, (ini, fi) <span class="k">in</span> <span class="f">enumerate</span>(rangos):\n    hilo = threading.<span class="f">Thread</span>(target=suma_parcial,\n                            args=(i, ini, fi, resultados))\n    hilos.append(hilo)\n    hilo.<span class="f">start</span>()'],
+ ['Cálculo parcial','Cada hilo suma sus números y guarda el resultado en su propia posición de la lista, sin tocar la de los demás: no hay condición de carrera.',
+  '<span class="k">def</span> <span class="f">suma_parcial</span>(indice, inicio, fin, resultados):\n    acumulado = <span class="n">0</span>\n    <span class="k">for</span> numero <span class="k">in</span> <span class="f">range</span>(inicio, fin + <span class="n">1</span>):\n        acumulado += numero\n    resultados[indice] = acumulado'],
+ ['Esperar con join()','El hilo principal llama a join() en cada hilo y se queda esperando hasta que todos terminen.',
+  '<span class="c"># El hilo principal espera a que todos terminen</span>\n<span class="k">for</span> hilo <span class="k">in</span> hilos:\n    hilo.<span class="f">join</span>()'],
+ ['Acumular y comparar','El principal suma los parciales y los compara con la suma secuencial y con la fórmula de Gauss.',
+  '<span class="k">return</span> <span class="f">sum</span>(resultados), rangos, resultados\n\n<span class="k">if</span> total_hilos == total_sec == total_formula:\n    <span class="f">print</span>(<span class="s">"RESULTADO: los tres valores COINCIDEN."</span>)']
+];
+let s=0,tick=0,timer=null,auto=null;
+const $=id=>document.getElementById(id);
+const nEl=$('n'),endEl=$('end');
+const cfg=()=>({n:+nEl.value,end:+endEl.value});
+function maxTicks(){const{n,end}=cfg();const big=end>40;return big?20:Math.max(...split(1,end,n).map(r=>r[1]-r[0]+1))}
+function render(){
+  const{n,end}=cfg(),R=split(1,end,n),big=end>40,T=maxTicks();
+  $('nv').textContent=n;
+  $('steps').innerHTML=STEPS.map((x,i)=>`<button class="pill ${i===s?'on':i<s?'done':''}" data-i="${i}"><b>${i<s?'✓':i+1}</b>${x[0]}</button>`).join('');
+  $('et').textContent=`${s+1}. ${STEPS[s][0]}`;$('ed').textContent=STEPS[s][1];$('code').innerHTML=STEPS[s][2];
+  const m=$('mchip');
+  const states=['configurando N','repartiendo rangos','start() × '+n,'trabajando (esperando)','join() esperando…','join() listo: todos terminaron'];
+  m.textContent=states[s];m.className='chip '+(s===3||s===4?'run':s===5?'go':'');
+  let html='',partials=[];
+  R.forEach(([a,b],i)=>{
+    const len=b-a+1,cnt=s<3?0:s>=4?len:(big?Math.round(len*Math.min(tick,T)/T):Math.min(tick,len));
+    const part=cnt>0?sumR(a,a+cnt-1):0;partials.push(sumR(a,b));
+    const st=s<2?'sin asignar':s===2?'creado':cnt>=len?'terminado':cnt>0?'ejecutando':'listo';
+    let vis;
+    if(big){vis=`<div class="bar"><i style="width:${s<1?0:len?cnt/len*100:0}%;background:${COL[i]}"></i></div><small style="color:var(--mut)">${s>=1?`${fmt(a)} a ${fmt(b)}`:'—'}</small>`}
+    else{let t='';for(let k=a;k<=b;k++){const lit=s>=3&&(k-a)<cnt;t+=`<span class="t ${s>=1?'asg':''} ${s>=1&&!lit?'dim':''}" style="${s>=1?`background:${COL[i]}`:''}">${k}</span>`}vis=`<div class="tiles">${s>=1?t:'<span style="color:var(--mut)">sin asignar</span>'}</div>`}
+    html+=`<div class="lane"><div class="who" style="color:${COL[i]}">Hilo ${i+1}<small>${st}</small></div><div>${vis}</div><div class="val">${s>=3?fmt(part):'—'}<small>${s>=3?'suma parcial':''}</small></div></div>`;
+  });
+  $('lanes').innerHTML=html;
+  const tot=partials.reduce((x,y)=>x+y,0);
+  $('mval').innerHTML=s===5?`${fmt(tot)}<small>total</small>`:'';
+  const show=s===5;$('resp').hidden=!show;
+  if(show){const g=sumR(1,end);
+    $('resg').innerHTML=[['Suma con '+n+' hilo(s)',tot],['Suma secuencial',sumR(1,end)],['Fórmula de Gauss',g]].map(x=>`<div><span>${x[0]}</span><b>${fmt(x[1])}</b></div>`).join('');
+    $('verd').textContent=(tot===g)?'✔ Los tres valores coinciden: '+partials.map(fmt).join(' + ')+' = '+fmt(tot):'Los valores no coinciden';}
+  $('prev').disabled=s===0;$('next').disabled=s===5;
+}
+function stopTimer(){clearInterval(timer);timer=null}
+function enter(i){stopTimer();s=i;tick=0;render();
+  if(s===3){timer=setInterval(()=>{tick++;render();if(tick>=maxTicks()){stopTimer();if(auto)setTimeout(()=>{if(auto&&s===3)enter(4)},700)}},cfg().end>40?130:380)}
+  else if(auto&&s<5)setTimeout(()=>{if(auto)enter(s+1)},1500);else if(s===5)auto=null}
+function reset(){auto=null;$('play').textContent='Reproducir';enter(0)}
+$('next').onclick=()=>{auto=null;enter(Math.min(5,s+1))};
+$('prev').onclick=()=>{auto=null;enter(Math.max(0,s-1))};
+$('reset').onclick=reset;
+$('play').onclick=()=>{if(auto){auto=null;stopTimer();$('play').textContent='Reproducir';return}
+  if(s===5)enter(0);auto=true;$('play').textContent='Pausar';enter(s===0?0:s)};
+$('steps').onclick=e=>{const b=e.target.closest('.pill');if(b){auto=null;enter(+b.dataset.i)}};
+nEl.oninput=reset;endEl.onchange=reset;
+reset();
+</script>
+</body>
+</html>
